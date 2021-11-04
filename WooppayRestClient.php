@@ -1,4 +1,5 @@
 <?php
+
 /**
  * The MIT License (MIT)
  *
@@ -168,6 +169,20 @@ class WooppayRestClient
 		}
 	}
 
+	/**
+	 * @param $operationId
+	 * @return array|null
+	 * @throws Exception
+	 */
+	public function getOperationData($operationId)
+	{
+		$coreApiMethod = $this->hostUrl . '/history/transaction/get-operations-data';
+		$body = json_encode(['operation_ids' => [$operationId]]);
+		$headers = $this->getDefaultHeaders();
+		$headers[] = "Authorization:$this->authToken";
+		return $this->handlePostRequest($coreApiMethod, $body, $headers);
+	}
+
 
 	/**
 	 * @param string $referenceId
@@ -196,13 +211,12 @@ class WooppayRestClient
 		$userEmail = '',
 		$userPhone = '',
 		$option = 0
-	)
-	{
+	) {
 		$coreApiMethod = $this->hostUrl . '/invoice/create';
 		$attributes = array(
 			'reference_id' => $referenceId,
 			'back_url' => $backUrl,
-			'request_url' => $requestUrl,
+			'request_url' => ['url' => $requestUrl, 'type' => 'POST'],
 			'amount' => (float)$amount,
 			'option' => $option,
 			'death_date' => $deathDate,

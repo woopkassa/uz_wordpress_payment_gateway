@@ -34,7 +34,8 @@ class WC_Gateway_Wooppay extends WC_Payment_Gateway
 	public function __construct()
 	{
 		$this->id = 'wooppay';
-		$this->icon = apply_filters('woocommerce_wooppay_icon', plugins_url() . '/wooppay-2.0/assets/images/wooppay.png');
+		$this->icon = apply_filters('woocommerce_wooppay_icon',
+			plugins_url() . '/wooppay-2.0/assets/images/wooppay.png');
 		$this->has_fields = false;
 		$this->method_title = __('WOOPPAY', 'Wooppay');
 		$this->init_form_fields();
@@ -53,11 +54,18 @@ class WC_Gateway_Wooppay extends WC_Payment_Gateway
 	 */
 	public function check_response()
 	{
-		if (isset($_REQUEST['id_order']) && isset($_REQUEST['key'])) {
-			$order = wc_get_order((int)$_REQUEST['id_order']);
-			if ($order && $order->key_is_valid($_REQUEST['key'])) {
-				$order->update_status('processing', __('Payment processing.', 'woocommerce'));
-				die('{"data":1}');
+		if (isset($_GET['id_order']) && isset($_GET['key'])) {
+			$order = wc_get_order((int)$_GET['id_order']);
+			if ($order && $order->key_is_valid($_GET['key'])) {
+				include_once('WooppayRestClient.php');
+				$client = new WooppayRestClient($this->get_option('api_url'));
+				if ($client->login($this->get_option('api_username'), $this->get_option('api_password'))) {
+					$operationData = $client->getOperationData($_POST['operationId']);
+					if ($operationData[0]->status == 14 || $operationData[0]->status == 19) {
+						$order->update_status('completed', __('Payment completed.', 'woocommerce'));
+						die('{"data":1}');
+					}
+				}
 			} else {
 				$this->add_log('Error order key: ' . print_r($_REQUEST, true));
 			}
@@ -118,7 +126,8 @@ class WC_Gateway_Wooppay extends WC_Payment_Gateway
 				'title' => __('Instructions', 'wooppay'),
 				'type' => 'textarea',
 				'description' => __('Instructions that will be added to the thank you page.', 'wooppay'),
-				'default' => __('Введите все необходимые данные и вас перенаправит на портал Wooppay для оплаты', 'wooppay')
+				'default' => __('Введите все необходимые данные и вас перенаправит на портал Wooppay для оплаты',
+					'wooppay')
 			),
 			'api_details' => array(
 				'title' => __('API Credentials', 'wooppay'),
@@ -185,7 +194,9 @@ class WC_Gateway_Wooppay extends WC_Payment_Gateway
 				$backUrl = $this->get_return_url($order);
 				$orderPrefix = $this->get_option('order_prefix');
 				$serviceName = $this->get_option('service_name');
-				$invoice = $client->createInvoice($orderPrefix . '_' . $order->id, $backUrl, $requestUrl, $order->get_total(), $serviceName, 'Оплата заказа №' . $order->id, '', '', $order->get_billing_email(), $order->get_billing_phone());
+				$invoice = $client->createInvoice($orderPrefix . '_' . $order->id, $backUrl, $requestUrl,
+					$order->get_total(), $serviceName, 'Оплата заказа №' . $order->id, '', '',
+					$order->get_billing_email(), $order->get_billing_phone());
 				$woocommerce->cart->empty_cart();
 				$order->update_status('pending', __('Payment Pending.', 'woocommerce'));
 				return array(
